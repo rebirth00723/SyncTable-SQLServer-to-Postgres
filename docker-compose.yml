@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  data-sync:
+    build: .
+    container_name: data_sync_service
+    image: table_sync_amo:latest
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Taipei
+    volumes:
+      # 掛載日誌目錄到主機
+      - ./logs:/app/logs
+      # 如果需要掛載設定檔
+    networks:
+      - data_sync_network
+    # 資源限制
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+networks:
+  data_sync_network:
+    name: data_sync_network
+    driver: bridge
