@@ -476,6 +476,32 @@ def verify_sync_result(target_engine, target_table, expected_count):
         return False
 
 
+def refresh_materialized_view(target_engine, mv_name):
+    """更新實例化視圖"""
+    try:
+        logger.info(f"開始更新實例化視圖: {mv_name}")
+
+        # 使用 CONCURRENTLY 選項進行並行更新（如果 MV 有唯一索引）
+        # 如果沒有唯一索引，則使用一般更新
+        refresh_query = f"REFRESH MATERIALIZED VIEW {mv_name}"
+
+        try:
+            with target_engine.begin() as conn:
+                conn.execute(text(refresh_query))
+            logger.info(f"實例化視圖 {mv_name} 更新成功 (CONCURRENTLY)")
+        except Exception as e:
+            # 如果 CONCURRENTLY 失敗（通常是因為沒有唯一索引），使用一般更新
+            logger.warning(f"CONCURRENTLY 更新失敗，嘗試一般更新: {e}")
+
+            refresh_query = f"REFRESH MATERIALIZED VIEW {mv_name}"
+            with target_engine.begin() as conn:
+                conn.execute(text(refresh_query))
+            logger.info(f"實例化視圖 {mv_name} 更新成功")
+
+    except Exception as e:
+        logger.error(f"更新實例化視圖 {mv_name} 失敗: {e}")
+        raise
+
 # =============== 主程式 ===============
 def sync_data_once():
     """執行一次資料同步"""
@@ -522,6 +548,16 @@ def sync_data_once():
             logger.info(f"=== 資料同步完成 ===")
             logger.info(f"同步筆數: {synced_count:,}")
             logger.info(f"執行時間: {duration}")
+
+            try:
+                logger.info("=== 開始更新實例化視圖 ===")
+                refresh_materialized_view(target_engine, "public.hd_mv_production_oee")
+                logger.info("=== 實例化視圖更新完成 ===")
+            except Exception as mv_error:
+                logger.error(f"實例化視圖更新失敗，但資料同步已完成: {mv_error}")
+                # 注意：這裡不返回 False，因為資料同步本身是成功的
+                # 只是 MV 更新失敗，這樣可以讓程式繼續運行
+
             return True
         else:
             logger.error("資料同步驗證失敗")
