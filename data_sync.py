@@ -481,22 +481,13 @@ def refresh_materialized_view(target_engine, mv_name):
     try:
         logger.info(f"開始更新實例化視圖: {mv_name}")
 
-        # 使用 CONCURRENTLY 選項進行並行更新（如果 MV 有唯一索引）
-        # 如果沒有唯一索引，則使用一般更新
+        # 使用一般更新
         refresh_query = f"REFRESH MATERIALIZED VIEW {mv_name}"
 
-        try:
-            with target_engine.begin() as conn:
-                conn.execute(text(refresh_query))
-            logger.info(f"實例化視圖 {mv_name} 更新成功 (CONCURRENTLY)")
-        except Exception as e:
-            # 如果 CONCURRENTLY 失敗（通常是因為沒有唯一索引），使用一般更新
-            logger.warning(f"CONCURRENTLY 更新失敗，嘗試一般更新: {e}")
+        with target_engine.begin() as conn:
+ git             conn.execute(text(refresh_query))
+        logger.info(f"實例化視圖 {mv_name} 更新成功")
 
-            refresh_query = f"REFRESH MATERIALIZED VIEW {mv_name}"
-            with target_engine.begin() as conn:
-                conn.execute(text(refresh_query))
-            logger.info(f"實例化視圖 {mv_name} 更新成功")
 
     except Exception as e:
         logger.error(f"更新實例化視圖 {mv_name} 失敗: {e}")
